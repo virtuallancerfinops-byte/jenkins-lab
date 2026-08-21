@@ -32,7 +32,6 @@ pipeline {
                     usernameVariable: 'DOCKER_USER',
                     passwordVariable: 'DOCKER_PASS'
                 )]) {
-
                     sh '''
                     echo "$DOCKER_PASS" | docker login \
                       -u "$DOCKER_USER" --password-stdin
@@ -51,24 +50,27 @@ pipeline {
 
         stage('Deploy to Kubernetes') {
             steps {
-                sh """
-                ssh -o StrictHostKeyChecking=no $K3S_USER@$K3S_HOST \\
-                  "mkdir -p /home/deploy/jenkins-lab"
+                sh '''
+                # Clean old manifests
+                ssh -o StrictHostKeyChecking=no $K3S_USER@$K3S_HOST \
+                  "rm -rf /home/deploy/k8s"
 
-                scp -o StrictHostKeyChecking=no -r k8s \\
-                  $K3S_USER@$K3S_HOST:/home/deploy/jenkins-lab/
+                # Copy latest manifests
+                scp -o StrictHostKeyChecking=no -r k8s \
+                  $K3S_USER@$K3S_HOST:/home/deploy/
 
+                # Update image and deploy
                 ssh -o StrictHostKeyChecking=no $K3S_USER@$K3S_HOST "
                   export KUBECONFIG=/home/deploy/.kube/config
 
-                  sed -i 's|image:.*|image: $IMAGE_NAME:$IMAGE_TAG|' \\
-                    /home/deploy/jenkins-lab/k8s/deployment.yaml
+                  sed -i 's|image:.*|image: '$IMAGE_NAME':'$IMAGE_TAG'|' \
+                    /home/deploy/k8s/deployment.yaml
 
-                  kubectl apply -f /home/deploy/jenkins-lab/k8s/
+                  kubectl apply -f /home/deploy/k8s/
 
                   kubectl rollout status deployment/jenkins-lab
                 "
-                """
+                '''
             }
         }
     }
