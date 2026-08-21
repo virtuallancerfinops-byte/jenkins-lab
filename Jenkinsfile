@@ -1,37 +1,49 @@
-
 pipeline {
     agent any
+
+    environment {
+        IMAGE_NAME = "dockfinop/jenkins-lab"
+        IMAGE_TAG  = "v1"
+    }
 
     stages {
 
         stage('Checkout') {
             steps {
-                echo 'Source code already checked out by Jenkins'
-                sh 'pwd'
-                sh 'ls -la'
+                checkout scm
             }
         }
 
         stage('Build Docker Image') {
             steps {
-                sh 'docker build -t jenkins-lab:v2 .'
+                sh 'docker build -t $IMAGE_NAME:$IMAGE_TAG .'
             }
         }
 
-        stage('Verify Image') {
+        stage('Docker Login') {
             steps {
-                sh 'docker images | grep jenkins-lab'
+                withCredentials([usernamePassword(
+                    credentialsId: 'dockerhub-creds',
+                    usernameVariable: 'DOCKER_USER',
+                    passwordVariable: 'DOCKER_PASS'
+                )]) {
+                    sh '''
+                    echo "$DOCKER_PASS" | docker login -u "$DOCKER_USER" --password-stdin
+                    '''
+                }
+            }
+        }
+
+        stage('Push Image') {
+            steps {
+                sh 'docker push $IMAGE_NAME:$IMAGE_TAG'
             }
         }
     }
 
     post {
         success {
-            echo 'Pipeline completed successfully'
-        }
-
-        failure {
-            echo 'Pipeline failed'
+            echo 'Docker image pushed successfully'
         }
     }
 }
