@@ -1,0 +1,23 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: jenkins-lab
+
+spec:
+  replicas: 2
+
+  selector:
+    matchLabels:
+      app: jenkins-lab
+
+  template:
+    metadata:
+      labels:
+        app: jenkins-lab
+
+    spec:
+      containers:
+      - name: web
+        image: dockfinop/jenkins-lab:latest
+        ports:
+        - containerPort: 80
