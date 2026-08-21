@@ -3,7 +3,7 @@ pipeline {
 
     environment {
         IMAGE_NAME = "dockfinop/jenkins-lab"
-        IMAGE_TAG = "${BUILD_NUMBER}"
+        IMAGE_TAG  = "${BUILD_NUMBER}"
     }
 
     stages {
@@ -39,25 +39,23 @@ pipeline {
                 sh 'docker push $IMAGE_NAME:$IMAGE_TAG'
             }
         }
+
+        stage('Deploy to Kubernetes') {
+            steps {
+                sh '''
+                ssh -o StrictHostKeyChecking=no deploy@172.31.8.222 << EOF
+                  export KUBECONFIG=/home/deploy/.kube/config
+                  kubectl set image deployment/jenkins-lab web=$IMAGE_NAME:$IMAGE_TAG
+                  kubectl rollout status deployment/jenkins-lab
+                EOF
+                '''
+            }
+        }
     }
 
     post {
         success {
-            echo 'Docker image pushed successfully'
-        }
-    }
-}
-        stage('Deploy to Kubernetes') {
-            steps {
-             sshagent(credentials: ['k3s-ssh']) {
-              sh '''
-               ssh -o StrictHostKeyChecking=no deploy@172.31.8.222 << 'EOF'
-                kubectl set image deployment/jenkins-lab \
-                 web=dockfinop/jenkins-lab:${BUILD_NUMBER}
-
-              kubectl rollout status deployment/jenkins-lab
-            EOF
-            '''
+            echo 'CI/CD Pipeline completed successfully'
         }
     }
 }
